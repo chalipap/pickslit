@@ -1046,13 +1046,10 @@ const FALLBACK = {
     {home:"Liverpool",           away:"Paris Saint-Germain", stage:"QUARTER_FINALS",date:"16 Abr", time:"21:00 CET"},
   ],
   ligamx:[
-    // Liga MX Clausura 2026 — Jornada 12 (semana 22-27 Mar 2026)
-    {home:"Chivas",        away:"Tigres UANL",  stage:"GROUP_STAGE",date:"22 Mar", time:"19:00"},
-    {home:"Monterrey",     away:"Club América",  stage:"GROUP_STAGE",date:"22 Mar", time:"21:00"},
-    {home:"Cruz Azul",     away:"Toluca",        stage:"GROUP_STAGE",date:"23 Mar", time:"19:00"},
-    {home:"Pumas UNAM",    away:"León",          stage:"GROUP_STAGE",date:"23 Mar", time:"21:06"},
-    {home:"Atlas",         away:"Pachuca",       stage:"GROUP_STAGE",date:"24 Mar", time:"19:00"},
-    {home:"San Luis",      away:"Mazatlán",      stage:"GROUP_STAGE",date:"25 Mar", time:"19:00"},
+    // Liga MX Clausura 2026 — Jornada 12 — Domingo 22 Mar 2026
+    {home:"Chivas",        away:"Tigres UANL",  stage:"GROUP_STAGE",date:"22 Mar",time:"17:00"},
+    {home:"Monterrey",     away:"Club América",  stage:"GROUP_STAGE",date:"22 Mar",time:"19:00"},
+    {home:"Cruz Azul",     away:"Toluca",        stage:"GROUP_STAGE",date:"22 Mar",time:"21:06"},
   ],
   pl:[
     // Premier League GW30 (semana 22-30 Mar 2026 — internacional, partidos el 29-30)
@@ -1536,18 +1533,78 @@ function fdots(form) {
 async function loadJornada() {
   if (jornadaCache[currentTourneyId]) { renderJornada(jornadaCache[currentTourneyId]); return; }
   var grid = document.getElementById('matchdayGrid');
-  grid.innerHTML = '<div style="text-align:center;padding:36px;color:var(--text3);font-family:var(--fm);font-size:12px"><div class="spin spin-w" style="margin:0 auto 12px;width:16px;height:16px;border-width:2px"></div>Cargando partidos...</div>';
+  grid.innerHTML = '<div style="text-align:center;padding:36px;color:var(--text3);font-family:var(--fm);font-size:12px"><div class="spin spin-w" style="margin:0 auto 12px;width:16px;height:16px;border-width:2px"></div>Cargando partidos de esta semana...</div>';
+
+  // Get today and end of week dates
+  var today = new Date();
+  var todayStr = today.toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'});
+  var endWeek = new Date(today); endWeek.setDate(today.getDate() + 7);
+  var endStr = endWeek.toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'});
+  var dayName = today.toLocaleDateString('es-MX', {weekday:'long'});
+
+  var tNames = {
+    ucl:    'UEFA Champions League 2025/26 — Cuartos de Final (ida: 8-9 Abr, vuelta: 15-16 Abr 2026)',
+    ligamx: 'Liga MX Clausura 2026',
+    pl:     'Premier League 2025/26',
+    laliga: 'La Liga 2025/26',
+    wc2026: 'Copa del Mundo 2026 (empieza 11 Jun 2026)',
+    mlb2026:'MLB 2026'
+  };
+
+  // Stage codes per tourney
+  var stageCode = {
+    ucl:'QUARTER_FINALS', ligamx:'GROUP_STAGE', pl:'GROUP_STAGE',
+    laliga:'GROUP_STAGE', wc2026:'GROUP_STAGE', mlb2026:'GROUP_STAGE'
+  };
+
+  var prompt = 'Hoy es ' + dayName + ' ' + todayStr + '. Dame los partidos de ' + tNames[currentTourneyId] +
+    ' que se juegan entre hoy (' + todayStr + ') y el ' + endStr + '. ' +
+    'Solo partidos confirmados y programados. Responde ÚNICAMENTE con un array JSON válido, sin texto adicional ni markdown. ' +
+    'Formato exacto: [{"home":"NombreEquipoOficial","away":"NombreEquipoOficial","stage":"' + (stageCode[currentTourneyId]||'GROUP_STAGE') + '","date":"22 Mar","time":"20:00"}]. ' +
+    'Usa nombres oficiales exactos de los equipos en español/inglés según la liga. ' +
+    'Si no hay partidos esta semana, responde con array vacío: []';
+
   try {
-    var tNames = {ucl:'UEFA Champions League 2025/26',ligamx:'Liga MX Clausura 2026',pl:'Premier League 2025/26',laliga:'La Liga 2025/26',wc2026:'Copa del Mundo 2026',mlb2026:'MLB 2026'};
-    var res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:'Sports data assistant. Respond ONLY with valid JSON array, no markdown.',messages:[{role:'user',content:'List upcoming scheduled matches for '+tNames[currentTourneyId]+'. Today: '+new Date().toISOString().slice(0,10)+'. JSON: [{"home":"Team","away":"Team","stage":"QUARTER_FINALS","date":"7 Apr 2026","time":"21:00"}]. Max 10 matches. Use exact official team names.'}]})});
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'Eres un asistente de datos deportivos. Conoces los calendarios de fútbol y béisbol para 2026. Responde SOLO con JSON válido, sin markdown, sin texto extra.',
+        messages: [{role:'user', content: prompt}]
+      })
+    });
     var data = await res.json();
     var txt = (data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var matches = JSON.parse(txt);
-    if (!Array.isArray(matches)||!matches.length) throw new Error('empty');
+    if (!Array.isArray(matches)) throw new Error('not array');
+    if (matches.length === 0) {
+      // No matches this week — show message
+      grid.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--text3)">' +
+        '<div style="font-size:36px;margin-bottom:12px">📅</div>' +
+        '<div style="font-family:var(--fd);font-size:16px;font-weight:700;margin-bottom:6px">Sin partidos esta semana</div>' +
+        '<div style="font-size:12px;line-height:1.7">No hay partidos programados para ' + tNames[currentTourneyId].split('—')[0].trim() + ' del ' + todayStr + ' al ' + endStr + '.</div>' +
+      '</div>';
+      return;
+    }
     jornadaCache[currentTourneyId] = matches;
     renderJornada(matches);
   } catch(e) {
-    renderJornada(FALLBACK[currentTourneyId]||[]);
+    // API failed — show fallback with warning
+    var fb = FALLBACK[currentTourneyId] || [];
+    if (fb.length) {
+      renderJornada(fb);
+      // Add warning banner
+      var grid2 = document.getElementById('matchdayGrid');
+      grid2.insertAdjacentHTML('afterbegin',
+        '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:9px;padding:9px 13px;margin-bottom:10px;font-size:11px;font-family:var(--fm);color:var(--lean);display:flex;align-items:center;gap:8px">' +
+        '⚠️ Sin conexión — mostrando calendario aproximado. <button onclick="jornadaCache={};loadJornada()" style="background:none;border:none;color:var(--lean);font-family:var(--fm);font-size:11px;cursor:pointer;text-decoration:underline;margin-left:auto">↻ Reintentar</button>' +
+        '</div>'
+      );
+    } else {
+      grid.innerHTML = '<div style="text-align:center;padding:36px;color:var(--text3);font-size:12px;font-family:var(--fm)">Sin conexión. Verifica tu internet y presiona ↻ Actualizar.</div>';
+    }
   }
 }
 
