@@ -848,29 +848,18 @@ function crest(team, size) {
   var name = team.n || '';
   var color = teamColor(name);
   var initials = teamInitials(name);
-  var fs = Math.round(s * 0.34);
-  // If team has a logo URL, try to load it; on error show initials avatar
-  if (team.logo) {
-    var avatarStyle = 'width:'+s+'px;height:'+s+'px;border-radius:6px;background:'+color+';display:inline-flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:'+fs+'px;font-weight:800;color:#fff;letter-spacing:-0.5px;flex-shrink:0;vertical-align:middle';
-    return '<img class="tcrest" src="'+team.logo+'" width="'+s+'" height="'+s+'" '+
-           'style="object-fit:contain;border-radius:6px;vertical-align:middle;flex-shrink:0" '+
-           'data-name="'+name+'" data-color="'+color+'" data-initials="'+initials+'" data-sz="'+s+'">'+
-           '<span class="tcrest-fb" style="display:none;'+avatarStyle+'">'+initials+'</span>';
-  }
-  // No logo — show initials avatar directly
-  return '<span style="width:'+s+'px;height:'+s+'px;border-radius:6px;background:'+color+';display:inline-flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:'+fs+'px;font-weight:800;color:#fff;letter-spacing:-0.5px;flex-shrink:0;vertical-align:middle">'+initials+'</span>';
+  var fs = Math.round(s * 0.36);
+  var r = Math.round(s * 0.2);
+  var lightBg = ['#FEBE10','#FDE100','#FFD700','#F5B300','#FFCC00','#FDB913','#6CABDD','#78C5E7'];
+  var txtColor = lightBg.indexOf(color) >= 0 ? '#111' : '#fff';
+  return '<span style="'+
+    'width:'+s+'px;height:'+s+'px;border-radius:'+r+'px;background:'+color+';'+
+    'display:inline-flex;align-items:center;justify-content:center;'+
+    'font-family:var(--fd);font-size:'+fs+'px;font-weight:900;'+
+    'color:'+txtColor+';letter-spacing:-0.5px;flex-shrink:0;vertical-align:middle;'+
+    'box-shadow:inset 0 -2px 4px rgba(0,0,0,0.25),0 1px 3px rgba(0,0,0,0.3)'+
+  '">'+initials+'</span>';
 }
-
-// Global error handler — swaps broken img → initials avatar
-document.addEventListener('error', function(e) {
-  var img = e.target;
-  if (!img || !img.classList || !img.classList.contains('tcrest')) return;
-  var sib = img.nextSibling;
-  img.style.display = 'none';
-  if (sib && sib.classList && sib.classList.contains('tcrest-fb')) {
-    sib.style.display = 'inline-flex';
-  }
-}, true);
 
 const TEAMS = {
   ucl:[
